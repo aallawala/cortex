@@ -777,9 +777,17 @@ func (g *Group) RestoreForState(ts time.Time) {
 			// Series found for the 'for' state.
 			var t int64
 			var v float64
+			level.Debug(g.logger).Log(
+				"msg", "printing t/v values in RestoreForState("+ts.String()+")",
+				"timestamp", t,
+				"value", v)
 			it := s.Iterator()
 			for it.Next() {
 				t, v = it.At()
+				level.Debug(g.logger).Log(
+					"msg", "printing t/v values in RestoreForState("+ts.String()+")",
+					"timestamp", t,
+					"value", v)
 			}
 			if it.Err() != nil {
 				level.Error(g.logger).Log("msg", "Failed to restore 'for' state",
@@ -794,6 +802,12 @@ func (g *Group) RestoreForState(ts time.Time) {
 			restoredActiveAt := time.Unix(int64(v), 0).UTC()
 			timeSpentPending := downAt.Sub(restoredActiveAt)
 			timeRemainingPending := alertHoldDuration - timeSpentPending
+			level.Debug(g.logger).Log(
+				"msg", "printing init values in RestoreForState("+ts.String()+")",
+				"downAt", downAt,
+				"restoredActiveAt", restoredActiveAt,
+				"timeSpentPending", timeSpentPending,
+				"timeRemainingPending", timeRemainingPending)
 
 			if timeRemainingPending <= 0 {
 				// It means that alert was firing when prometheus went down.

@@ -84,3 +84,6 @@ replace github.com/gocql/gocql => github.com/grafana/gocql v0.0.0-20200605141915
 
 // Using a 3rd-party branch for custom dialer - see https://github.com/bradfitz/gomemcache/pull/86
 replace github.com/bradfitz/gomemcache => github.com/themihai/gomemcache v0.0.0-20180902122335-24332e2d58ab
+
+replace github.com/prometheus/prometheus => github.com/aallawala/prometheus v1.8.2-0.20210809003645-2cfb90d40eaa
+
