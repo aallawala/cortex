@@ -99,26 +99,26 @@ func (q *distributorQuerier) Select(_ bool, sp *storage.SelectHints, matchers ..
 	// series in ingesters).
 	// Also, in the recent versions of Prometheus, we pass in the hint but with Func set to "series".
 	// See: https://github.com/prometheus/prometheus/pull/8050
-	if sp == nil || sp.Func == "series" {
-		level.Debug(log).Log("msg", "reached DISTRIBUTOR Select->MetricsForLabelMatchers block",
-			"matchers", q.printFriendlyMatchers(matchers))
-		ms, err := q.distributor.MetricsForLabelMatchers(ctx, model.Time(q.mint), model.Time(q.maxt), matchers...)
-		if err != nil {
-			level.Error(log).Log("msg", "Error was not nil",
-				"err", err.Error())
-			return storage.ErrSeriesSet(err)
-		}
-
-		var sb strings.Builder
-		for _, m := range ms {
-			sb.WriteString("Metric: " + m.String())
-		}
-
-		level.Debug(log).Log("msg", "REACHED MetricToSeriesSet",
-			"len", len(ms),
-			"ms", sb.String())
-		return series.MetricsToSeriesSet(ms)
-	}
+	//if sp == nil || sp.Func == "series" {
+	//	level.Debug(log).Log("msg", "reached DISTRIBUTOR Select->MetricsForLabelMatchers block",
+	//		"matchers", q.printFriendlyMatchers(matchers))
+	//	ms, err := q.distributor.MetricsForLabelMatchers(ctx, model.Time(q.mint), model.Time(q.maxt), matchers...)
+	//	if err != nil {
+	//		level.Error(log).Log("msg", "Error was not nil",
+	//			"err", err.Error())
+	//		return storage.ErrSeriesSet(err)
+	//	}
+	//
+	//	var sb strings.Builder
+	//	for _, m := range ms {
+	//		sb.WriteString("Metric: " + m.String())
+	//	}
+	//
+	//	level.Debug(log).Log("msg", "REACHED MetricToSeriesSet",
+	//		"len", len(ms),
+	//		"ms", sb.String())
+	//	return series.MetricsToSeriesSet(ms)
+	//}
 
 	minT, maxT := sp.Start, sp.End
 
