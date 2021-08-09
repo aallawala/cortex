@@ -3,6 +3,7 @@ package querier
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log/level"
@@ -77,6 +78,14 @@ type distributorQuerier struct {
 	queryIngestersWithin time.Duration
 }
 
+func (q *distributorQuerier) printFriendlyMatchers(matchers []*labels.Matcher) string {
+	var sb strings.Builder
+	for _, m := range matchers {
+		sb.WriteString("Name: " + m.Name + ", Value: " + m.Value + ", Type" + m.Type.String())
+	}
+	return sb.String()
+}
+
 // Select implements storage.Querier interface.
 // The bool passed is ignored because the series is always sorted.
 func (q *distributorQuerier) Select(_ bool, sp *storage.SelectHints, matchers ...*labels.Matcher) storage.SeriesSet {
@@ -92,7 +101,7 @@ func (q *distributorQuerier) Select(_ bool, sp *storage.SelectHints, matchers ..
 	// See: https://github.com/prometheus/prometheus/pull/8050
 	if sp == nil || sp.Func == "series" {
 		level.Debug(log).Log("msg", "reached DISTRIBUTOR Select->MetricsForLabelMatchers block",
-			"matchers", matchers)
+			"matchers", q.printFriendlyMatchers(matchers))
 		ms, err := q.distributor.MetricsForLabelMatchers(ctx, model.Time(q.mint), model.Time(q.maxt), matchers...)
 		if err != nil {
 			return storage.ErrSeriesSet(err)
