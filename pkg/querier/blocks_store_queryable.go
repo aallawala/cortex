@@ -581,6 +581,8 @@ func (q *blocksStoreQuerier) fetchSeriesFromStores(
 			skipChunks := sp != nil && sp.Func == "series"
 
 			req, err := createSeriesRequest(minT, maxT, convertedMatchers, skipChunks, blockIDs)
+			level.Debug(spanLog).Log("msg", "reached BLOCKS_STORE fetchSeriesFromStores block",
+				"matchers", matchers)
 			if err != nil {
 				return errors.Wrapf(err, "failed to create series request")
 			}
