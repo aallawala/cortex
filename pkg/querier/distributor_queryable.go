@@ -104,8 +104,19 @@ func (q *distributorQuerier) Select(_ bool, sp *storage.SelectHints, matchers ..
 			"matchers", q.printFriendlyMatchers(matchers))
 		ms, err := q.distributor.MetricsForLabelMatchers(ctx, model.Time(q.mint), model.Time(q.maxt), matchers...)
 		if err != nil {
+			level.Error(log).Log("msg", "Error was not nil",
+				"err", err.Error())
 			return storage.ErrSeriesSet(err)
 		}
+
+		var sb strings.Builder
+		for _, m := range ms {
+			sb.WriteString("Metric: " + m.String())
+		}
+
+		level.Debug(log).Log("msg", "REACHED MetricToSeriesSet",
+			"len", len(ms),
+			"ms", sb.String())
 		return series.MetricsToSeriesSet(ms)
 	}
 
