@@ -308,7 +308,7 @@ func (q querier) Select(_ bool, sp *storage.SelectHints, matchers ...*labels.Mat
 		// In this case, the query time range has already been validated when the querier has been
 		// created.
 		return q.metadataQuerier.Select(true, sp, matchers...)
-	} else {
+	} else if sp == nil {
 		// if SelectHints is null, rely on minT, maxT of querier to scope in range for Select stmt
 		sp = &storage.SelectHints{Start: q.mint, End: q.maxt}
 	}
