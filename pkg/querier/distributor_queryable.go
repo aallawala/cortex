@@ -3,7 +3,6 @@ package querier
 import (
 	"context"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log/level"
@@ -78,14 +77,6 @@ type distributorQuerier struct {
 	queryIngestersWithin time.Duration
 }
 
-func (q *distributorQuerier) printFriendlyMatchers(matchers []*labels.Matcher) string {
-	var sb strings.Builder
-	for _, m := range matchers {
-		sb.WriteString("Name: " + m.Name + ", Value: " + m.Value + ", Type" + m.Type.String())
-	}
-	return sb.String()
-}
-
 // Select implements storage.Querier interface.
 // The bool passed is ignored because the series is always sorted.
 func (q *distributorQuerier) Select(_ bool, sp *storage.SelectHints, matchers ...*labels.Matcher) storage.SeriesSet {
@@ -99,7 +90,7 @@ func (q *distributorQuerier) Select(_ bool, sp *storage.SelectHints, matchers ..
 	// series in ingesters).
 	// Also, in the recent versions of Prometheus, we pass in the hint but with Func set to "series".
 	// See: https://github.com/prometheus/prometheus/pull/8050
-	if sp != nil && sp.Func == "series" {
+	if sp == nil || sp.Func == "series" {
 		ms, err := q.distributor.MetricsForLabelMatchers(ctx, model.Time(q.mint), model.Time(q.maxt), matchers...)
 		if err != nil {
 			return storage.ErrSeriesSet(err)
@@ -107,15 +98,7 @@ func (q *distributorQuerier) Select(_ bool, sp *storage.SelectHints, matchers ..
 		return series.MetricsToSeriesSet(ms)
 	}
 
-	var minT int64
-	var maxT int64
-	if sp == nil {
-		minT = q.mint
-		maxT = q.maxt
-	} else {
-		minT = sp.Start
-		maxT = sp.End
-	}
+	minT, maxT := sp.Start, sp.End
 
 	// If queryIngestersWithin is enabled, we do manipulate the query mint to query samples up until
 	// now - queryIngestersWithin, because older time ranges are covered by the storage. This
