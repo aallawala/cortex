@@ -98,3 +98,5 @@ replace github.com/thanos-io/thanos v0.22.0 => github.com/thanos-io/thanos v0.19
 // Pin aws-sdk to version prior to go-kit update, to reduce the bulk of change.
 // Un-pin once Cortex 1.11 is released.
 replace github.com/aws/aws-sdk-go => github.com/aws/aws-sdk-go v1.40.37
+
+replace github.com/prometheus/prometheus => github.com/aallawala/prometheus v1.8.2-0.20220216221543-a18c6a01d4d8
