@@ -1804,7 +1804,7 @@ func (ev *evaluator) matrixSelector(node *parser.MatrixSelector) (Matrix, storag
 		}
 
 		ss.Points = ev.matrixIterSlice(it, mint, maxt, false, getPointSlice(16))
-		ev.samplesStats.IncrementSamplesAtTimestamp(ev.startTimestamp, len(ss.Points))
+		ev.samplesStats.IncrementSamplesAtTimestamp(ev.startTimestamp, int64(len(ss.Points)))
 
 		if len(ss.Points) > 0 {
 			matrix = append(matrix, ss)
