@@ -2168,24 +2168,10 @@ func prepareIngesterWithBlocksStorage(t testing.TB, ingesterCfg Config, register
 func prepareIngesterWithBlocksStorageAndLimits(t testing.TB, ingesterCfg Config, limits validation.Limits, dataDir string, registerer prometheus.Registerer) (*Ingester, error) {
 	// Create a data dir if none has been provided.
 	if dataDir == "" {
-		var err error
-		if dataDir, err = ioutil.TempDir("", "ingester"); err != nil {
-			return nil, err
-		}
-
-		t.Cleanup(func() {
-			require.NoError(t, os.RemoveAll(dataDir))
-		})
+		dataDir = t.TempDir()
 	}
 
-	bucketDir, err := ioutil.TempDir("", "bucket")
-	if err != nil {
-		return nil, err
-	}
-
-	t.Cleanup(func() {
-		require.NoError(t, os.RemoveAll(bucketDir))
-	})
+	bucketDir := t.TempDir()
 
 	clientCfg := defaultClientTestConfig()
 
@@ -2330,9 +2316,7 @@ func TestIngester_v2OpenExistingTSDBOnStartup(t *testing.T) {
 			require.NoError(t, err)
 
 			// Create a temporary directory for TSDB
-			tempDir, err := ioutil.TempDir("", "tsdb")
-			require.NoError(t, err)
-			defer os.RemoveAll(tempDir)
+			tempDir := t.TempDir()
 
 			ingesterCfg := defaultIngesterTestConfig(t)
 			ingesterCfg.BlocksStorageEnabled = true
@@ -2489,6 +2473,45 @@ func TestIngester_seriesCountIsCorrectAfterClosingTSDBForDeletedTenant(t *testin
 
 	// Closing should decrease series count.
 	require.Equal(t, int64(0), i.TSDBState.seriesCount.Load())
+}
+
+func TestIngester_sholdUpdateCacheShippedBlocks(t *testing.T) {
+	ctx := context.Background()
+	cfg := defaultIngesterTestConfig(t)
+	cfg.LifecyclerConfig.JoinAfter = 0
+	cfg.BlocksStorageConfig.TSDB.ShipConcurrency = 2
+
+	// Create ingester
+	i, err := prepareIngesterWithBlocksStorage(t, cfg, nil)
+	require.NoError(t, err)
+
+	require.NoError(t, services.StartAndAwaitRunning(ctx, i))
+	defer services.StopAndAwaitTerminated(ctx, i) //nolint:errcheck
+
+	// Wait until it's ACTIVE
+	test.Poll(t, 1*time.Second, ring.ACTIVE, func() interface{} {
+		return i.lifecycler.GetState()
+	})
+
+	mockUserShipper(t, i)
+
+	// Mock the shipper meta (no blocks).
+	db := i.getTSDB(userID)
+	err = db.updateCachedShippedBlocks()
+	require.NoError(t, err)
+
+	require.Equal(t, len(db.getCachedShippedBlocks()), 0)
+	shippedBlock, _ := ulid.Parse("01D78XZ44G0000000000000000")
+
+	require.NoError(t, shipper.WriteMetaFile(log.NewNopLogger(), db.db.Dir(), &shipper.Meta{
+		Version:  shipper.MetaVersion1,
+		Uploaded: []ulid.ULID{shippedBlock},
+	}))
+
+	err = db.updateCachedShippedBlocks()
+	require.NoError(t, err)
+
+	require.Equal(t, len(db.getCachedShippedBlocks()), 1)
 }
 
 func TestIngester_closeAndDeleteUserTSDBIfIdle_shouldNotCloseTSDBIfShippingIsInProgress(t *testing.T) {
@@ -3297,11 +3320,7 @@ func pushSingleSampleAtTime(t *testing.T, i *Ingester, ts int64) {
 
 func TestHeadCompactionOnStartup(t *testing.T) {
 	// Create a temporary directory for TSDB
-	tempDir, err := ioutil.TempDir("", "tsdb")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		os.RemoveAll(tempDir)
-	})
+	tempDir := t.TempDir()
 
 	// Build TSDB for user, with data covering 24 hours.
 	{

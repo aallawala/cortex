@@ -871,6 +871,10 @@ The `querier_config` configures the Cortex querier.
 # CLI flag: -querier.ingester-streaming
 [ingester_streaming: <boolean> | default = true]
 
+# Use streaming RPCs for metadata APIs from ingester.
+# CLI flag: -querier.ingester-metadata-streaming
+[ingester_metadata_streaming: <boolean> | default = false]
+
 # Maximum number of samples a single query can load into memory.
 # CLI flag: -querier.max-samples
 [max_samples: <int> | default = 50000000]
@@ -5149,13 +5153,13 @@ bucket_store:
   # CLI flag: -blocks-storage.bucket-store.max-chunk-pool-bytes
   [max_chunk_pool_bytes: <int> | default = 2147483648]
 
-  # If enabled, store-gateway will lazy load an index-header only once required
-  # by a query.
+  # If enabled, store-gateway will lazily memory-map an index-header only once
+  # required by a query.
   # CLI flag: -blocks-storage.bucket-store.index-header-lazy-loading-enabled
   [index_header_lazy_loading_enabled: <boolean> | default = false]
 
   # If index-header lazy loading is enabled and this setting is > 0, the
-  # store-gateway will offload unused index-headers after 'idle timeout'
+  # store-gateway will release memory-mapped index-headers after 'idle timeout'
   # inactivity.
   # CLI flag: -blocks-storage.bucket-store.index-header-lazy-loading-idle-timeout
   [index_header_lazy_loading_idle_timeout: <duration> | default = 20m]
@@ -5312,6 +5316,16 @@ The `compactor_config` configures the compactor for the blocks storage.
 # compact instead of halting the compaction.
 # CLI flag: -compactor.skip-blocks-with-out-of-order-chunks-enabled
 [skip_blocks_with_out_of_order_chunks_enabled: <boolean> | default = false]
+
+# Number of goroutines to use when fetching/uploading block files from object
+# storage.
+# CLI flag: -compactor.block-files-concurrency
+[block_files_concurrency: <int> | default = 10]
+
+# Number of goroutines to use when fetching blocks from object storage when
+# compacting.
+# CLI flag: -compactor.blocks-fetch-concurrency
+[blocks_fetch_concurrency: <int> | default = 3]
 
 # When enabled, at compactor startup the bucket will be scanned and all found
 # deletion marks inside the block location will be copied to the markers global

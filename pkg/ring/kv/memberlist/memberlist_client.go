@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	mathrand "math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -410,7 +411,7 @@ func (m *KV) buildMemberlistConfig() (*memberlist.Config, error) {
 	return mlCfg, nil
 }
 
-func (m *KV) starting(_ context.Context) error {
+func (m *KV) starting(ctx context.Context) error {
 	mlCfg, err := m.buildMemberlistConfig()
 	if err != nil {
 		return err
@@ -437,6 +438,15 @@ func (m *KV) starting(_ context.Context) error {
 	}
 	m.initWG.Done()
 
+	if len(m.cfg.JoinMembers) > 0 {
+		// Lookup SRV records for given addresses to discover members.
+		members := m.discoverMembers(ctx, m.cfg.JoinMembers)
+
+		err := m.joinMembersOnStarting(members)
+		if err != nil {
+			level.Warn(m.logger).Log("msg", "failed to join memberlist cluster on startup", "err", err)
+		}
+	}
 	return nil
 }
 
@@ -449,7 +459,7 @@ func (m *KV) running(ctx context.Context) error {
 		// Lookup SRV records for given addresses to discover members.
 		members := m.discoverMembers(ctx, m.cfg.JoinMembers)
 
-		err := m.joinMembersOnStartup(ctx, members)
+		err := m.joinMembersOnRunning(ctx, members)
 		if err != nil {
 			level.Error(m.logger).Log("msg", "failed to join memberlist cluster", "err", err)
 
@@ -462,6 +472,12 @@ func (m *KV) running(ctx context.Context) error {
 	var tickerChan <-chan time.Time
 	if m.cfg.RejoinInterval > 0 && len(m.cfg.JoinMembers) > 0 {
 		t := time.NewTicker(m.cfg.RejoinInterval)
+		t.Stop()
+		time.AfterFunc(time.Duration(uint64(mathrand.Int63())%uint64(m.cfg.RejoinInterval)), func() {
+			m.rejoinMemberlist(ctx)
+
+			t.Reset(m.cfg.RejoinInterval)
+		})
 		defer t.Stop()
 
 		tickerChan = t.C
@@ -470,19 +486,22 @@ func (m *KV) running(ctx context.Context) error {
 	for {
 		select {
 		case <-tickerChan:
-			members := m.discoverMembers(ctx, m.cfg.JoinMembers)
-
-			reached, err := m.memberlist.Join(members)
-			if err == nil {
-				level.Info(m.logger).Log("msg", "re-joined memberlist cluster", "reached_nodes", reached)
-			} else {
-				// Don't report error from rejoin, otherwise KV service would be stopped completely.
-				level.Warn(m.logger).Log("msg", "re-joining memberlist cluster failed", "err", err)
-			}
-
+			m.rejoinMemberlist(ctx)
 		case <-ctx.Done():
 			return nil
 		}
+	}
+}
+
+func (m *KV) rejoinMemberlist(ctx context.Context) {
+	members := m.discoverMembers(ctx, m.cfg.JoinMembers)
+
+	reached, err := m.memberlist.Join(members)
+	if err == nil {
+		level.Info(m.logger).Log("msg", "re-joined memberlist cluster", "reached_nodes", reached)
+	} else {
+		// Don't report error from rejoin, otherwise KV service would be stopped completely.
+		level.Warn(m.logger).Log("msg", "re-joining memberlist cluster failed", "err", err)
 	}
 }
 
@@ -507,7 +526,7 @@ func (m *KV) JoinMembers(members []string) (int, error) {
 	return m.memberlist.Join(members)
 }
 
-func (m *KV) joinMembersOnStartup(ctx context.Context, members []string) error {
+func (m *KV) joinMembersOnRunning(ctx context.Context, members []string) error {
 	reached, err := m.memberlist.Join(members)
 	if err == nil {
 		level.Info(m.logger).Log("msg", "joined memberlist cluster", "reached_nodes", reached)
@@ -544,6 +563,16 @@ func (m *KV) joinMembersOnStartup(ctx context.Context, members []string) error {
 	}
 
 	return lastErr
+}
+
+func (m *KV) joinMembersOnStarting(members []string) error {
+	reached, err := m.memberlist.Join(members)
+	if err == nil {
+		level.Info(m.logger).Log("msg", "joined memberlist cluster", "reached_nodes", reached)
+		return nil
+	}
+
+	return err
 }
 
 // Provides a dns-based member disovery to join a memberlist cluster w/o knowning members' addresses upfront.
